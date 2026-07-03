@@ -15,6 +15,13 @@ public partial class MainWindow : Window
         LookupTabView.StatusReported += SetStatus;
         BulkTabView.StatusReported += SetStatus;
 
+        // An extension ID typed into name search jumps straight to a proper ID lookup.
+        SearchTabView.IdDetected += id =>
+        {
+            TabLookup.IsChecked = true;
+            LookupTabView.LookupId(id);
+        };
+
         SourceInitialized += (_, _) => EnableDarkTitleBar();
         Loaded += (_, _) => SearchTabView.FocusQuery();
     }

@@ -9,6 +9,9 @@ public partial class SearchView : UserControl
 {
     public event Action<string, StatusLevel>? StatusReported;
 
+    /// <summary>Raised when the user types an extension ID into the name search box.</summary>
+    public event Action<string>? IdDetected;
+
     private readonly ObservableCollection<SearchResult> _chromeResults = new();
     private readonly ObservableCollection<SearchResult> _edgeResults = new();
 
@@ -39,6 +42,15 @@ public partial class SearchView : UserControl
         if (query.Length == 0)
         {
             Report("Please enter an extension name to search.", StatusLevel.Warn);
+            return;
+        }
+
+        // An ID pasted into name search gives garbage fuzzy matches from the Edge
+        // search API - hand it to the Lookup by ID tab instead.
+        var maybeId = query.ToLowerInvariant();
+        if (StoreClient.IsValidId(maybeId))
+        {
+            IdDetected?.Invoke(maybeId);
             return;
         }
 

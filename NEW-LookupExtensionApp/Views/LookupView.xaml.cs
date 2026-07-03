@@ -29,6 +29,13 @@ public partial class LookupView : UserControl
 
     private void Lookup_Click(object sender, RoutedEventArgs e) => _ = RunLookupAsync();
 
+    /// <summary>Fill in an ID and run the lookup (used when name search detects a pasted ID).</summary>
+    public void LookupId(string id)
+    {
+        IdBox.Text = id;
+        _ = RunLookupAsync();
+    }
+
     private async Task RunLookupAsync()
     {
         var id = IdBox.Text.Trim().ToLowerInvariant();

@@ -62,3 +62,6 @@ Writes `selftest-results.txt` next to wherever you ran it and exits 0 if everyth
   Same fallback: "Open in browser."
 - Extension IDs are 32 characters, letters a–p only. The app validates this before
   making any requests.
+- Feeding an extension ID to the Edge *search* API returns junk fuzzy matches, so if
+  you paste an ID into Search by Name, the app notices and jumps you straight to a
+  proper Lookup by ID instead.

@@ -22,11 +22,8 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Right" Text="v3.0" VerticalAlignment="Center"
                            Foreground="{StaticResource TextMutedBrush}"/>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Browser Extension Lookup" FontSize="20" FontWeight="SemiBold"/>
-                    <TextBlock Text="Intune Policy Helper" FontSize="12" Margin="14,7,0,0"
-                               Foreground="{StaticResource TextMutedBrush}"/>
-                </StackPanel>
+                <TextBlock Text="Browser Extension Lookup" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
 

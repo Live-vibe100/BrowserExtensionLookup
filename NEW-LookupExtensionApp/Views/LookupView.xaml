@@ -1,0 +1,89 @@
+<UserControl x:Class="BrowserExtensionLookup.Views.LookupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Lookup input -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*" MaxWidth="560"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Extension ID:" FontWeight="SemiBold" FontSize="14"
+                       VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBox x:Name="IdBox" Grid.Column="1" Style="{StaticResource ModernTextBox}"
+                     FontFamily="Consolas" VerticalAlignment="Center" KeyDown="IdBox_KeyDown"/>
+            <Button x:Name="LookupButton" Grid.Column="2" Content="Lookup in Both Stores"
+                    Style="{StaticResource AccentButton}" Margin="14,0,0,0" MinWidth="180"
+                    Click="Lookup_Click"/>
+        </Grid>
+
+        <!-- Result card with split Chrome/Edge accent stripe -->
+        <Border Grid.Row="1" Background="{StaticResource CardBrush}" CornerRadius="6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Background="{StaticResource ChromeBrush}" CornerRadius="6,0,0,0"/>
+                    <Border Grid.Column="1" Background="{StaticResource EdgeBrush}" CornerRadius="0,6,0,0"/>
+                </Grid>
+                <DataGrid x:Name="ResultGrid" Grid.Row="1" Style="{StaticResource DarkGrid}"
+                          MouseDoubleClick="Grid_DoubleClick">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Store" Binding="{Binding StoreName}" Width="110">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StoreName}" Value="Chrome">
+                                            <Setter Property="Foreground" Value="{StaticResource ChromeBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding StoreName}" Value="Edge">
+                                            <Setter Property="Foreground" Value="{StaticResource EdgeBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Status}" Value="Found">
+                                            <Setter Property="Foreground" Value="{StaticResource GreenBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Status}" Value="Not Found">
+                                            <Setter Property="Foreground" Value="{StaticResource RedBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Extension Name" Binding="{Binding Name}" Width="5*"/>
+                        <DataGridTextColumn Header="Extension ID" Binding="{Binding Id}" Width="3*"
+                                            ElementStyle="{StaticResource MonoCellText}"/>
+                        <DataGridTemplateColumn Width="72" MinWidth="72" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="Copy" Style="{StaticResource CopyButton}" Click="CopyId_Click"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

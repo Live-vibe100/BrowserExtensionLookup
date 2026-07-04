@@ -1,4 +1,4 @@
-# Browser Extension Lookup (v3.0)
+# Browser Extension Lookup (v2.0)
 
 A portable Windows app for looking up browser extension IDs from the Chrome Web Store
 and Microsoft Edge Add-ons Store. Built for managing Intune browser extension

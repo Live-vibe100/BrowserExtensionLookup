@@ -26,44 +26,28 @@ public partial class BulkView : UserControl
     private void Report(string message, StatusLevel level = StatusLevel.Info) =>
         StatusReported?.Invoke(message, level);
 
-    private void Run_Click(object sender, RoutedEventArgs e) => _ = RunBulkAsync();
+    // async void so any unexpected exception reaches App.DispatcherUnhandledException instead of vanishing.
+    private async void Run_Click(object sender, RoutedEventArgs e) => await RunBulkAsync();
 
     private async Task RunBulkAsync()
     {
-        var ids = IdsBox.Text
-            .Split('\n')
-            .Select(l => l.Trim().ToLowerInvariant())
-            .Where(l => l.Length > 0)
-            .ToList();
+        var extraction = IdExtractor.Extract(IdsBox.Text);
+        var noIdNote = extraction.LinesWithoutId == 0 ? ""
+            : $" {extraction.LinesWithoutId} line(s) had no extension ID in them (first: '{Shorten(extraction.FirstLineWithoutId!)}').";
+        var dupeNote = extraction.Duplicates > 0 ? $" {extraction.Duplicates} duplicate(s) removed." : "";
 
-        if (ids.Count == 0)
+        if (extraction.Ids.Count == 0)
         {
-            Report("Please paste one or more extension IDs (one per line).", StatusLevel.Warn);
+            Report(IdsBox.Text.Trim().Length == 0
+                ? "Please paste some extension IDs, store URLs or policy lines."
+                : "No extension IDs found. IDs are 32 characters, letters a-p only." + noIdNote, StatusLevel.Warn);
             return;
         }
 
         _rows.Clear();
-        foreach (var id in ids)
-        {
-            var valid = StoreClient.IsValidId(id);
-            _rows.Add(new BulkRow
-            {
-                Id = id,
-                IsValid = valid,
-                ChromeName = valid ? "" : "N/A",
-                ChromeStatus = valid ? "Pending" : "Invalid",
-                EdgeName = valid ? "" : "N/A",
-                EdgeStatus = valid ? "Pending" : "Invalid",
-            });
-        }
-
-        var pending = _rows.Where(r => r.IsValid).ToList();
-        var invalidCount = _rows.Count - pending.Count;
-        if (pending.Count == 0)
-        {
-            Report($"All {invalidCount} line(s) are invalid IDs. IDs are 32 characters, letters a-p only.", StatusLevel.Warn);
-            return;
-        }
+        foreach (var id in extraction.Ids)
+            _rows.Add(new BulkRow { Id = id, ChromeStatus = "Pending", EdgeStatus = "Pending" });
+        var pending = _rows.ToList();
 
         RunButton.IsEnabled = false;
         CancelButton.IsEnabled = true;
@@ -104,8 +88,15 @@ public partial class BulkView : UserControl
             await Task.WhenAll(pending.Select(r => ProcessRow(r, _cts.Token)));
 
             var found = _rows.Count(r => r.ChromeStatus == "Found" || r.EdgeStatus == "Found");
-            var invalidNote = invalidCount > 0 ? $" ({invalidCount} invalid line(s) skipped)" : "";
-            Report($"Bulk lookup complete: {found} of {pending.Count} extension(s) found in at least one store.{invalidNote}");
+            var removed = _rows.Count(r => r.ChromeStatus == "Removed" || r.EdgeStatus == "Removed");
+            var mv2 = _rows.Count(r => r.ChromeManifest == "MV2" || r.EdgeManifest == "MV2");
+            var errors = _rows.Count(r => r.ChromeStatus.StartsWith("Error") || r.EdgeStatus.StartsWith("Error"));
+
+            var summary = $"Bulk lookup complete: {found} of {pending.Count} extension(s) found in at least one store.";
+            if (removed > 0) summary += $" {removed} removed from a store.";
+            if (mv2 > 0) summary += $" {mv2} still Manifest V2.";
+            if (errors > 0) summary += $" {errors} lookup(s) failed with an error; run again to retry them.";
+            Report(summary + dupeNote + noIdNote, errors > 0 ? StatusLevel.Warn : StatusLevel.Info);
         }
         catch (OperationCanceledException)
         {
@@ -145,12 +136,13 @@ public partial class BulkView : UserControl
         try
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Extension ID,Chrome Name,Chrome Status,Edge Name,Edge Status");
+            sb.AppendLine("Extension ID,Chrome Name,Chrome Status,Chrome Manifest,Chrome Users,Edge Name,Edge Status,Edge Manifest,Edge Users");
             foreach (var r in _rows)
             {
                 sb.AppendLine(string.Join(",",
-                    Util.CsvField(r.Id), Util.CsvField(r.ChromeName), Util.CsvField(r.ChromeStatus),
-                    Util.CsvField(r.EdgeName), Util.CsvField(r.EdgeStatus)));
+                    Util.CsvField(r.Id),
+                    Util.CsvField(r.ChromeName), Util.CsvField(r.ChromeStatus), Util.CsvField(r.ChromeManifest), Util.CsvField(r.ChromeUsers),
+                    Util.CsvField(r.EdgeName), Util.CsvField(r.EdgeStatus), Util.CsvField(r.EdgeManifest), Util.CsvField(r.EdgeUsers)));
             }
             // UTF-8 with BOM so Excel opens it cleanly
             File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
@@ -165,7 +157,9 @@ public partial class BulkView : UserControl
     private void CopyId_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not BulkRow r) return;
-        Clipboard.SetText(r.Id);
-        Report($"Copied ID: {r.Id}");
+        if (Util.TryCopy(r.Id) is { } error) Report(error, StatusLevel.Warn);
+        else Report($"Copied ID: {r.Id}");
     }
+
+    private static string Shorten(string text) => text.Length <= 40 ? text : text[..40] + "...";
 }

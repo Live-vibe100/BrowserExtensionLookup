@@ -24,7 +24,7 @@ The exe isn't checked into the repo (it's a build output). To get it, either bui
 source or download it from a [Release](../../releases) if one's attached. Build details
 and the full feature list are in [`v2-app/README.md`](v2-app/README.md).
 
-Quick build (needs the .NET 8 SDK):
+Quick build (needs the .NET 10 SDK):
 
 ```
 cd v2-app
@@ -40,11 +40,14 @@ exe — just PowerShell. See [`v1-powershell/`](v1-powershell/) for the script i
 
 These come from how the stores work, not from the tool:
 
-- **Chrome has no search API.** Name search scrapes the Chrome search page and only sees
-  results in the initial HTML, so some are missed. Lookup by ID is always reliable, and
-  an "Open in browser" link is provided as the fallback.
-- **The Edge search API hides some brand-verified listings** (e.g. NordVPN). Same
-  fallback: "Open in browser."
+- **Chrome has no search API.** Name search reads the Chrome search page, which only
+  hands over the top 10 matches. Lookup by ID is always reliable, and an "Open in
+  browser" link is there as the fallback. (v2.1 reads the page's own result data, so
+  names are complete and come with user counts; v1 still rebuilds names from URLs,
+  which Google cuts short.)
+- **Edge search hides Manifest V2 extensions.** uBlock Origin on Edge never shows up in
+  Edge search, but looking it up by ID still works. v2.1 flags MV2 extensions so you can
+  plan replacements.
 - **Extension IDs are 32 characters, letters a–p only.** Both versions validate this.
 
 ## Author

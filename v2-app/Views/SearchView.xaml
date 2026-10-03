@@ -51,6 +51,8 @@
                               MouseDoubleClick="Grid_DoubleClick">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Extension Name" Binding="{Binding Name}" Width="6*"/>
+                            <DataGridTextColumn Header="Users" Binding="{Binding UsersText}" Width="100"/>
+                            <DataGridTextColumn Header="Rating" Binding="{Binding RatingText}" Width="100"/>
                             <DataGridTextColumn Header="Extension ID" Binding="{Binding Id}" Width="4*"
                                                 ElementStyle="{StaticResource MonoCellText}"/>
                             <DataGridTemplateColumn Width="72" MinWidth="72" CanUserResize="False">
@@ -85,6 +87,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Extension Name" Binding="{Binding Name}" Width="5*"/>
                             <DataGridTextColumn Header="Developer" Binding="{Binding Developer}" Width="3*"/>
+                            <DataGridTextColumn Header="Rating" Binding="{Binding RatingText}" Width="100"/>
                             <DataGridTextColumn Header="Extension ID" Binding="{Binding Id}" Width="4*"
                                                 ElementStyle="{StaticResource MonoCellText}"/>
                             <DataGridTemplateColumn Width="72" MinWidth="72" CanUserResize="False">

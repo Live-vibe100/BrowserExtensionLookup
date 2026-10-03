@@ -15,7 +15,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="Paste extension IDs (one per line):" FontWeight="SemiBold"
+                <TextBlock Text="Paste anything with extension IDs in it: IDs, store URLs, Intune policy lines, CSV, JSON..." FontWeight="SemiBold"
                            FontSize="14" Margin="0,0,0,6"/>
                 <TextBox x:Name="IdsBox" Style="{StaticResource ModernTextBox}" Height="88"
                          FontFamily="Consolas" AcceptsReturn="True" TextWrapping="NoWrap"
@@ -60,27 +60,6 @@
                     <Border Grid.Column="1" Background="{StaticResource EdgeBrush}" CornerRadius="0,6,0,0"/>
                 </Grid>
                 <DataGrid x:Name="ResultGrid" Grid.Row="1" Style="{StaticResource DarkGrid}">
-                    <DataGrid.Resources>
-                        <Style x:Key="StatusText" TargetType="TextBlock">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="Found">
-                                    <Setter Property="Foreground" Value="{StaticResource GreenBrush}"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="Not Found">
-                                    <Setter Property="Foreground" Value="{StaticResource RedBrush}"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="Invalid">
-                                    <Setter Property="Foreground" Value="{StaticResource OrangeBrush}"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="Pending">
-                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="Cancelled">
-                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </DataGrid.Resources>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Extension ID" Binding="{Binding Id}" Width="3*"
                                             ElementStyle="{StaticResource MonoCellText}"/>
@@ -91,8 +70,16 @@
                                 </Style>
                             </DataGridTextColumn.HeaderStyle>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="Chrome" Binding="{Binding ChromeStatus}" Width="110"
-                                            ElementStyle="{StaticResource StatusText}">
+                        <DataGridTextColumn Header="Chrome" Binding="{Binding ChromeStatus}" Width="140"
+                                            ElementStyle="{StaticResource StatusCellText}">
+                            <DataGridTextColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DarkGridHeader}">
+                                    <Setter Property="Foreground" Value="{StaticResource ChromeBrush}"/>
+                                </Style>
+                            </DataGridTextColumn.HeaderStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="MV" Binding="{Binding ChromeManifest}" Width="56"
+                                            ElementStyle="{StaticResource StatusCellText}">
                             <DataGridTextColumn.HeaderStyle>
                                 <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DarkGridHeader}">
                                     <Setter Property="Foreground" Value="{StaticResource ChromeBrush}"/>
@@ -106,8 +93,16 @@
                                 </Style>
                             </DataGridTextColumn.HeaderStyle>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="Edge" Binding="{Binding EdgeStatus}" Width="110"
-                                            ElementStyle="{StaticResource StatusText}">
+                        <DataGridTextColumn Header="Edge" Binding="{Binding EdgeStatus}" Width="140"
+                                            ElementStyle="{StaticResource StatusCellText}">
+                            <DataGridTextColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DarkGridHeader}">
+                                    <Setter Property="Foreground" Value="{StaticResource EdgeBrush}"/>
+                                </Style>
+                            </DataGridTextColumn.HeaderStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="MV" Binding="{Binding EdgeManifest}" Width="56"
+                                            ElementStyle="{StaticResource StatusCellText}">
                             <DataGridTextColumn.HeaderStyle>
                                 <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DarkGridHeader}">
                                     <Setter Property="Foreground" Value="{StaticResource EdgeBrush}"/>

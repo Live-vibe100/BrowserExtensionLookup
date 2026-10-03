@@ -14,6 +14,7 @@ public partial class SearchView : UserControl
 
     private readonly ObservableCollection<SearchResult> _chromeResults = new();
     private readonly ObservableCollection<SearchResult> _edgeResults = new();
+    private bool _busy;
 
     public SearchView()
     {
@@ -27,17 +28,21 @@ public partial class SearchView : UserControl
     private void Report(string message, StatusLevel level = StatusLevel.Info) =>
         StatusReported?.Invoke(message, level);
 
-    private void QueryBox_KeyDown(object sender, KeyEventArgs e)
+    // async void so any unexpected exception reaches App.DispatcherUnhandledException instead of vanishing.
+    private async void QueryBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;
         e.Handled = true;
-        _ = RunSearchAsync();
+        await RunSearchAsync();
     }
 
-    private void Search_Click(object sender, RoutedEventArgs e) => _ = RunSearchAsync();
+    private async void Search_Click(object sender, RoutedEventArgs e) => await RunSearchAsync();
 
     private async Task RunSearchAsync()
     {
+        // Repeated Enter presses while a search is running are ignored (they used to mix two result sets).
+        if (_busy) return;
+
         var query = QueryBox.Text.Trim();
         if (query.Length == 0)
         {
@@ -54,6 +59,7 @@ public partial class SearchView : UserControl
             return;
         }
 
+        _busy = true;
         SearchButton.IsEnabled = false;
         _chromeResults.Clear();
         _edgeResults.Clear();
@@ -73,6 +79,7 @@ public partial class SearchView : UserControl
         }
         finally
         {
+            _busy = false;
             SearchButton.IsEnabled = true;
         }
     }
@@ -85,22 +92,26 @@ public partial class SearchView : UserControl
         var errors = "";
         if (chrome.Error is not null) errors += $" Chrome search failed ({chrome.Error}).";
         if (edge.Error is not null) errors += $" Edge search failed ({edge.Error}).";
+        if (chrome.Note is not null) errors += " " + chrome.Note;
 
         if (c == 0 && e == 0)
             Report($"No results from either store for '{query}'.{errors} Click 'Open in browser' on either side to search the live store directly.", StatusLevel.Warn);
         else if (c == 0)
             Report($"Found {e} Edge result(s). Chrome returned nothing.{errors} Click Chrome 'Open in browser' to search the live store.", StatusLevel.Warn);
         else if (e == 0)
-            Report($"Found {c} Chrome result(s). Edge returned nothing (brand-verified listings may be hidden).{errors} Click Edge 'Open in browser' to search the live store.", StatusLevel.Warn);
+            Report($"Found {c} Chrome result(s). Edge returned nothing (Edge search hides Manifest V2 extensions; Lookup by ID still finds them).{errors}", StatusLevel.Warn);
+        else if (errors.Length > 0)
+            Report($"Found {c} Chrome result(s) and {e} Edge result(s) for '{query}'.{errors}", StatusLevel.Warn);
         else
-            Report($"Found {c} Chrome result(s) and {e} Edge result(s) for '{query}'");
+            Report($"Found {c} Chrome result(s) and {e} Edge result(s) for '{query}'."
+                + (c >= 10 ? " Chrome only gives its top 10 matches; use Open in browser for more." : ""));
     }
 
     private void CopyId_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not SearchResult r) return;
-        Clipboard.SetText(r.Id);
-        Report($"Copied {r.Store} ID: {r.Id}");
+        if (Util.TryCopy(r.Id) is { } error) Report(error, StatusLevel.Warn);
+        else Report($"Copied {r.Store} ID: {r.Id}");
     }
 
     private void Grid_DoubleClick(object sender, MouseButtonEventArgs e)

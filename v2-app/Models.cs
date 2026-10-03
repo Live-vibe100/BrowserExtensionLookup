@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 
 namespace BrowserExtensionLookup;
 
@@ -89,10 +90,14 @@ public class BulkRow : INotifyPropertyChanged
         ChromeName = chrome.NameText;
         ChromeStatus = chrome.StatusText;
         ChromeManifest = chrome.ManifestText;
-        ChromeUsers = chrome.UsersText;
+        ChromeUsers = PlainUsers(chrome);
         EdgeName = edge.NameText;
         EdgeStatus = edge.StatusText;
         EdgeManifest = edge.ManifestText;
-        EdgeUsers = edge.UsersText;
+        EdgeUsers = PlainUsers(edge);
     }
+
+    // Users only go to the CSV, so keep them as plain numbers (no thousands separators) for spreadsheets.
+    private static string PlainUsers(LookupResult r) =>
+        r.Found && r.Users is > 0 ? r.Users.Value.ToString(CultureInfo.InvariantCulture) : "";
 }

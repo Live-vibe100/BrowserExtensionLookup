@@ -21,7 +21,8 @@
 - GUI verified by driving the real exe with UI Automation: nordvpn search, rapid 5x Enter on "zoom" (10/47 rows, no
   doubling), Edge uBO Found+MV2, Chrome uBO Removed, Intune paste in Bulk + CSV export, dead proxy -> Error (no connection),
   clipboard locked -> status warning, no crash.
-- **Next:** Joe reviews. Then ask about push / PR / release (one at a time). Phase 2 = cross-store matching only, after Joe says go.
+- Follow-up (same day): CSV users now plain numbers; 28-query search sweep (scratchpad harness calling StoreClient) found no app bugs, 54/54 top-result lookups matched. Joe approved pushing the branch.
+- **Next:** ask Joe about a PR and a Release (not yet approved). Phase 2 = cross-store matching only, after Joe says go.
 
 ## 1. What was done so far
 

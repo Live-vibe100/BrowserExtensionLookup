@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace BrowserExtensionLookup;
 
@@ -31,7 +32,20 @@ public partial class App : Application
             return;
         }
 
+        // Nothing should take the app down silently: show what went wrong and keep running.
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            MessageBox.Show("Browser Extension Lookup hit an unexpected error and has to close:\n\n" + args.ExceptionObject,
+                "Browser Extension Lookup", MessageBoxButton.OK, MessageBoxImage.Error);
+
         MainWindow = new MainWindow();
         MainWindow.Show();
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        e.Handled = true;
+        MessageBox.Show(MainWindow, "Something went wrong, but the app is still running:\n\n" + e.Exception.Message,
+            "Browser Extension Lookup", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 }

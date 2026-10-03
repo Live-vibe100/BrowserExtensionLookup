@@ -57,21 +57,12 @@
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Status}" Value="Found">
-                                            <Setter Property="Foreground" Value="{StaticResource GreenBrush}"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding Status}" Value="Not Found">
-                                            <Setter Property="Foreground" Value="{StaticResource RedBrush}"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="150"
+                                            ElementStyle="{StaticResource StatusCellText}"/>
                         <DataGridTextColumn Header="Extension Name" Binding="{Binding Name}" Width="5*"/>
+                        <DataGridTextColumn Header="Users" Binding="{Binding Users}" Width="110"/>
+                        <DataGridTextColumn Header="Manifest" Binding="{Binding Manifest}" Width="90"
+                                            ElementStyle="{StaticResource StatusCellText}"/>
                         <DataGridTextColumn Header="Extension ID" Binding="{Binding Id}" Width="3*"
                                             ElementStyle="{StaticResource MonoCellText}"/>
                         <DataGridTemplateColumn Width="72" MinWidth="72" CanUserResize="False">

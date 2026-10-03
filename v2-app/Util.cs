@@ -84,14 +84,16 @@ public static class IdExtractor
     }
 }
 
-/// <summary>Colours a status cell: Found green, Not Found red, Removed/Error orange, the rest muted.</summary>
+/// <summary>Colours a status cell: Found/Same publisher green, Not Found red, Removed/Error/check-it orange, the rest muted.</summary>
 public sealed class StatusBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         var key = (value as string) switch
         {
-            "Found" => "GreenBrush",
+            "Found" or "Same publisher" => "GreenBrush",
+            "Name match, check it" => "OrangeBrush",
+            "No match" => "TextMutedBrush",
             "Not Found" => "RedBrush",
             "Removed" => "OrangeBrush",
             { } s when s.StartsWith("Error", StringComparison.Ordinal) => "OrangeBrush",

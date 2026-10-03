@@ -44,6 +44,11 @@ public partial class BulkView : UserControl
             return;
         }
 
+        var findMatches = MatchBox.IsChecked == true;
+        var matchVisibility = findMatches ? Visibility.Visible : Visibility.Collapsed;
+        MatchStatusColumn.Visibility = MatchNameColumn.Visibility = MatchIdColumn.Visibility = matchVisibility;
+        MatchCopyColumn.Visibility = matchVisibility;
+
         _rows.Clear();
         foreach (var id in extraction.Ids)
             _rows.Add(new BulkRow { Id = id, ChromeStatus = "Pending", EdgeStatus = "Pending" });
@@ -56,7 +61,8 @@ public partial class BulkView : UserControl
         Progress.Maximum = pending.Count;
         Progress.Value = 0;
         ProgressText.Text = $"0 / {pending.Count}";
-        Report($"Looking up {pending.Count} ID(s) across both stores...", StatusLevel.Working);
+        Report($"Looking up {pending.Count} ID(s) across both stores" +
+               (findMatches ? " and finding matches..." : "..."), StatusLevel.Working);
 
         _cts = new CancellationTokenSource();
         var done = 0;
@@ -72,6 +78,19 @@ public partial class BulkView : UserControl
                 var edgeTask = StoreClient.Instance.LookupEdgeAsync(row.Id, ct);
                 await Task.WhenAll(chromeTask, edgeTask);
                 row.SetResults(chromeTask.Result, edgeTask.Result);
+
+                if (findMatches)
+                {
+                    if (StoreMatcher.SourceFor(chromeTask.Result, edgeTask.Result) is { } source)
+                    {
+                        row.MatchStatus = "Searching...";
+                        row.SetMatch(await StoreMatcher.Instance.FindAsync(source, ct));
+                    }
+                    else if (chromeTask.Result.Found && edgeTask.Result.Found)
+                    {
+                        row.MatchStatus = "Listed in both";
+                    }
+                }
             }
             finally
             {
@@ -96,6 +115,15 @@ public partial class BulkView : UserControl
             if (removed > 0) summary += $" {removed} removed from a store.";
             if (mv2 > 0) summary += $" {mv2} still Manifest V2.";
             if (errors > 0) summary += $" {errors} lookup(s) failed with an error; run again to retry them.";
+            if (findMatches)
+            {
+                var confirmed = _rows.Count(r => r.MatchStatus == "Same publisher");
+                var checkIt = _rows.Count(r => r.MatchStatus == "Name match, check it");
+                var matchErrors = _rows.Count(r => r.MatchStatus.StartsWith("Error"));
+                summary += $" Other-store matches: {confirmed} same publisher, {checkIt} to check by hand.";
+                if (matchErrors > 0) summary += $" {matchErrors} match search(es) failed.";
+                errors += matchErrors;
+            }
             Report(summary + dupeNote + noIdNote, errors > 0 ? StatusLevel.Warn : StatusLevel.Info);
         }
         catch (OperationCanceledException)
@@ -105,6 +133,8 @@ public partial class BulkView : UserControl
                 row.ChromeStatus = "Cancelled";
                 row.EdgeStatus = "Cancelled";
             }
+            foreach (var row in _rows.Where(r => r.MatchStatus == "Searching..."))
+                row.MatchStatus = "Cancelled";
             Report($"Bulk lookup cancelled after {done} of {pending.Count} ID(s).", StatusLevel.Warn);
         }
         finally
@@ -136,13 +166,15 @@ public partial class BulkView : UserControl
         try
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Extension ID,Chrome Name,Chrome Status,Chrome Manifest,Chrome Users,Edge Name,Edge Status,Edge Manifest,Edge Users");
+            sb.AppendLine("Extension ID,Chrome Name,Chrome Status,Chrome Manifest,Chrome Users,Edge Name,Edge Status,Edge Manifest,Edge Users," +
+                          "Match Store,Match Status,Match Name,Match ID");
             foreach (var r in _rows)
             {
                 sb.AppendLine(string.Join(",",
                     Util.CsvField(r.Id),
                     Util.CsvField(r.ChromeName), Util.CsvField(r.ChromeStatus), Util.CsvField(r.ChromeManifest), Util.CsvField(r.ChromeUsers),
-                    Util.CsvField(r.EdgeName), Util.CsvField(r.EdgeStatus), Util.CsvField(r.EdgeManifest), Util.CsvField(r.EdgeUsers)));
+                    Util.CsvField(r.EdgeName), Util.CsvField(r.EdgeStatus), Util.CsvField(r.EdgeManifest), Util.CsvField(r.EdgeUsers),
+                    Util.CsvField(r.MatchStore), Util.CsvField(r.MatchStatus), Util.CsvField(r.MatchName), Util.CsvField(r.MatchId)));
             }
             // UTF-8 with BOM so Excel opens it cleanly
             File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
@@ -159,6 +191,18 @@ public partial class BulkView : UserControl
         if ((sender as FrameworkElement)?.DataContext is not BulkRow r) return;
         if (Util.TryCopy(r.Id) is { } error) Report(error, StatusLevel.Warn);
         else Report($"Copied ID: {r.Id}");
+    }
+
+    private void CopyMatchId_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not BulkRow r) return;
+        if (r.MatchId.Length == 0)
+        {
+            Report("This row has no match ID to copy.", StatusLevel.Warn);
+            return;
+        }
+        if (Util.TryCopy(r.MatchId) is { } error) Report(error, StatusLevel.Warn);
+        else Report($"Copied {r.MatchStore} match ID: {r.MatchId}");
     }
 
     private static string Shorten(string text) => text.Length <= 40 ? text : text[..40] + "...";

@@ -19,6 +19,13 @@ internal static class SelfTest
     private const string ChromeUblockId = "cjpalhdlnbpafiamejdnhcphjbkeiagm";    // uBlock Origin on Chrome, removed (MV2 phase-out)
     private const string BogusId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+    // Cross-store pairs, checked 2026-10-03
+    private const string ChromeNordVpnId = "fjoaledfpmneenckfbpdfhkmimnjocfa";   // "VPN for Chrome: NordVPN proxy protection"
+    private const string EdgeNordVpnId = "fphgeikpdcdcheaochkhldmnfblfogla";     // "NordVPN - the Fastest VPN proxy for privacy"
+    private const string ChromeGrammarlyId = "kbfnbcaeplbcioakkpcpgfkobkghlhen";
+    private const string ChromeDarkReaderId = "eimadpbcbfnmbkopoojfekhnkhdbieeh";
+    private const string EdgeDarkReaderLookalikeId = "ooeaeegkhfeikelcapagcgeofffkjind"; // "Darth Reader Inc.", no website
+
     private const string IntuneSample = """
         ExtensionInstallForcelist:
         aapbdbdomjkkjkaonfhkkikfgjllcleb;https://clients2.google.com/service/update2/crx
@@ -64,6 +71,26 @@ internal static class SelfTest
             && items[0].Users == 38000000 && items[0].ManifestVersion == 3,
             $"items={items.Count} name='{items.FirstOrDefault()?.Name}' users={items.FirstOrDefault()?.Users} mv={items.FirstOrDefault()?.ManifestVersion}");
 
+        // Publisher website comparison used by cross-store matching
+        var pk = StoreMatcher.PublisherKey;
+        Check("Publisher website: scheme/www/slash ignored",
+            pk("http://grammarly.com") == pk("https://www.grammarly.com/") && pk("www.adobe.com/in/about-adobe.html") == "adobe.com",
+            $"{pk("http://grammarly.com")} / {pk("https://www.grammarly.com/")} / {pk("www.adobe.com/in/about-adobe.html")}");
+        Check("Publisher website: shared hosts split by owner",
+            pk("https://github.com/gorhill/uBlock") == pk("https://github.com/gorhill/uMatrix")
+            && pk("https://github.com/alice/tool") != pk("https://github.com/bob/tool")
+            && pk("https://chromewebstore.google.com/detail/x") is null && pk("") is null,
+            $"{pk("https://github.com/gorhill/uBlock")} vs {pk("https://github.com/alice/tool")}");
+        Check("Website search term",
+            StoreMatcher.WebsiteStem("https://nordvpn.com/") == "nordvpn"
+            && StoreMatcher.WebsiteStem("https://github.com/darkreader/darkreader") == "darkreader"
+            && StoreMatcher.WebsiteStem("http://shop.example.co.uk") == "example",
+            $"{StoreMatcher.WebsiteStem("https://nordvpn.com/")}, {StoreMatcher.WebsiteStem("https://github.com/darkreader/darkreader")}, {StoreMatcher.WebsiteStem("http://shop.example.co.uk")}");
+        Check("Name comparison keeps non-Latin text",
+            StoreMatcher.NormName("Salesforce 快速登录助手") != StoreMatcher.NormName("Salesforce")
+            && StoreMatcher.NormName("Keeper® Password  Manager") == StoreMatcher.NormName("keeper password manager"),
+            $"'{StoreMatcher.NormName("Salesforce 快速登录助手")}'");
+
         // Simulated store responses: errors must never look like "not found"
         await CheckFake("Chrome HTTP 503 -> Error", req => Respond(req, HttpStatusCode.ServiceUnavailable),
             c => c.LookupChromeAsync(ChromeTranslateId), LookupStatus.Error);
@@ -81,6 +108,13 @@ internal static class SelfTest
         await CheckFake("Chrome store status 5 -> Not Found",
             req => Respond(req, HttpStatusCode.OK, "<script>AF_initDataCallback({key: 'ds:0',  data:[5],errorHasStatus: true,});</script>"),
             c => c.LookupChromeAsync(BogusId), LookupStatus.NotFound);
+
+        var deadMatcher = new StoreMatcher(new StoreClient(new FakeHandler(
+            _ => throw new HttpRequestException(HttpRequestError.ConnectionError, "simulated"))));
+        var deadMatch = await deadMatcher.FindAsync(new LookupResult(ChromeNordVpnId, Store.Chrome, LookupStatus.Found,
+            "VPN for Chrome: NordVPN proxy protection", "", Website: "https://nordvpn.com/"));
+        Check("Match search with no connection -> Error, not No match",
+            deadMatch.Confidence == MatchConfidence.Error, deadMatch.ConfidenceText);
 
         Line("--- Live checks (real stores) ---");
         var client = StoreClient.Instance;
@@ -119,6 +153,32 @@ internal static class SelfTest
         var edgeSearch = await client.SearchEdgeAsync("grammarly");
         Check("Edge search returns results", edgeSearch.Results.Count > 0,
             $"{edgeSearch.Results.Count} result(s), error={edgeSearch.Error ?? "none"}, first='{edgeSearch.Results.FirstOrDefault()?.Name}'");
+
+        Line("--- Live cross-store matching ---");
+        var matcher = StoreMatcher.Instance;
+
+        var nordChrome = await client.LookupChromeAsync(ChromeNordVpnId);
+        var nordMatch = nordChrome.Found ? await matcher.FindAsync(nordChrome) : null;
+        Check("Chrome NordVPN -> Edge NordVPN (different names, same publisher)",
+            nordMatch?.Confidence == MatchConfidence.SamePublisher && nordMatch.Id == EdgeNordVpnId,
+            $"{nordMatch?.ConfidenceText ?? nordChrome.StatusText} '{nordMatch?.Name}' {nordMatch?.Id}");
+
+        var grammarlyEdge = await client.LookupEdgeAsync(EdgeGrammarlyId);
+        var grammarlyMatch = grammarlyEdge.Found ? await matcher.FindAsync(grammarlyEdge) : null;
+        Check("Edge Grammarly -> Chrome Grammarly",
+            grammarlyMatch?.Confidence == MatchConfidence.SamePublisher && grammarlyMatch.Id == ChromeGrammarlyId,
+            $"{grammarlyMatch?.ConfidenceText ?? grammarlyEdge.StatusText} '{grammarlyMatch?.Name}' {grammarlyMatch?.Id}");
+
+        var darkChrome = await client.LookupChromeAsync(ChromeDarkReaderId);
+        var darkMatch = darkChrome.Found ? await matcher.FindAsync(darkChrome) : null;
+        Check("Chrome Dark Reader is NOT matched to the Edge lookalike",
+            darkMatch is not null && darkMatch.Confidence != MatchConfidence.Error && darkMatch.Id != EdgeDarkReaderLookalikeId,
+            $"{darkMatch?.ConfidenceText ?? darkChrome.StatusText} '{darkMatch?.Name}' note={darkMatch?.Note ?? "none"}");
+
+        var translateMatch = chrome.Found ? await matcher.FindAsync(chrome) : null;
+        Check("Chrome-only Google Translate -> no Edge match",
+            translateMatch?.Confidence == MatchConfidence.None,
+            $"{translateMatch?.ConfidenceText} '{translateMatch?.Name}'");
 
         var verdict = failures == 0 ? "ALL CHECKS PASSED" : $"{failures} CHECK(S) FAILED";
         Line(verdict);

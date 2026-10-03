@@ -57,8 +57,9 @@ public sealed class StoreClient
     public async Task<LookupResult> LookupChromeAsync(string id, CancellationToken ct = default)
     {
         var url = $"https://chromewebstore.google.com/detail/{id}";
-        LookupResult Result(LookupStatus status, string name = "", long? users = null, int? manifest = null, string? error = null) =>
-            new(id, Store.Chrome, status, name, url, users, manifest, error);
+        LookupResult Result(LookupStatus status, string name = "", long? users = null, int? manifest = null,
+            string? error = null, string? website = null) =>
+            new(id, Store.Chrome, status, name, url, users, manifest, error, website);
 
         try
         {
@@ -69,7 +70,7 @@ public sealed class StoreClient
             // 1. The structured data block for this exact ID
             var item = ChromeData.FindItems(resp.Body).FirstOrDefault(i => i.Id == id);
             if (item is not null)
-                return Result(LookupStatus.Found, item.Name, item.Users, item.ManifestVersion);
+                return Result(LookupStatus.Found, item.Name, item.Users, item.ManifestVersion, website: item.Website);
 
             // 2. The store's own status code for the page. Observed 2026-10-02:
             //    5 (NOT_FOUND) for IDs that never existed, 7 for listings the store took down.
@@ -102,8 +103,9 @@ public sealed class StoreClient
     public async Task<LookupResult> LookupEdgeAsync(string id, CancellationToken ct = default)
     {
         var url = $"https://microsoftedge.microsoft.com/addons/detail/{id}";
-        LookupResult Result(LookupStatus status, string name = "", long? users = null, int? manifest = null, string? error = null) =>
-            new(id, Store.Edge, status, name, url, users, manifest, error);
+        LookupResult Result(LookupStatus status, string name = "", long? users = null, int? manifest = null,
+            string? error = null, string? website = null) =>
+            new(id, Store.Edge, status, name, url, users, manifest, error, website);
 
         // Strategy 1: the JSON API. A 404 here is a definite "no such extension".
         string? apiProblem = null;
@@ -133,7 +135,8 @@ public sealed class StoreClient
                         JsonValueKind.False => 3,
                         _ => null,
                     };
-                    return Result(LookupStatus.Found, WebUtility.HtmlDecode(name).Trim(), users, manifest);
+                    var website = GetPropCI(root, "publisherWebsiteUri") is { ValueKind: JsonValueKind.String } w ? w.GetString() : null;
+                    return Result(LookupStatus.Found, WebUtility.HtmlDecode(name).Trim(), users, manifest, website: website);
                 }
             }
         }
@@ -186,7 +189,7 @@ public sealed class StoreClient
             {
                 results.Add(new SearchResult(item.Name, item.Id, Store.Chrome, "",
                     $"https://chromewebstore.google.com/detail/{item.Id}",
-                    item.Users, item.Rating, item.RatingCount));
+                    item.Users, item.Rating, item.RatingCount, item.Website));
             }
             if (results.Count > 0) return new SearchOutcome(results, null);
 
@@ -215,14 +218,14 @@ public sealed class StoreClient
         }
     }
 
-    /// <summary>Edge search via the official v4 API, following pagination up to 3 pages.</summary>
-    public async Task<SearchOutcome> SearchEdgeAsync(string query, CancellationToken ct = default)
+    /// <summary>Edge search via the official v4 API, following pagination up to 3 pages (20 results each).</summary>
+    public async Task<SearchOutcome> SearchEdgeAsync(string query, CancellationToken ct = default, int maxPages = 3)
     {
         var results = new List<SearchResult>();
         try
         {
             var seen = new HashSet<string>();
-            for (var page = 1; page <= 3; page++)
+            for (var page = 1; page <= maxPages; page++)
             {
                 var url = "https://microsoftedge.microsoft.com/addons/v4/getfilteredorderedsearch" +
                           "?hl=en-US&gl=US&filteredCategories=Edge-Extensions&filteredAddon=0" +

@@ -1,4 +1,4 @@
-# Browser Extension Lookup (v2.1)
+# Browser Extension Lookup (v2.2)
 
 A portable Windows app for looking up browser extension IDs from the Chrome Web Store
 and Microsoft Edge Add-ons Store. Built for managing Intune browser extension
@@ -14,12 +14,36 @@ Three tabs across the top:
 - **Search by Name** — search both stores at once, results side by side, with user
   counts and ratings so you can tell the real extension from the knock-offs
 - **Lookup by ID** — paste an extension ID, see its name, which store(s) it's in, how
-  many users it has, and whether it's still Manifest V2
+  many users it has, and whether it's still Manifest V2. If it's only in one store, the
+  app goes and finds the same extension in the other one (Chrome ID → Edge ID and back)
 - **Bulk Lookup** — paste a pile of IDs and get them all resolved at once, then
   **Export CSV** if you want the results in a spreadsheet
 
 Every result has a Copy button for the ID. Double-click a result row to open the
 extension's store page in your browser.
+
+## What's new in 2.2: find it in the other store
+
+Chrome and Edge give the same extension **different IDs**, so a Chrome policy list doesn't
+carry over to Edge. Now, when an ID is only in one store, the app looks for the same
+extension in the other store and gives you its ID:
+
+- **Lookup by ID** adds a third row, e.g. "Edge match".
+- **Bulk Lookup** has a tick box, "Also find each extension in the other store". It adds
+  Match columns to the grid (with a **Copy match** button) and to the CSV. It's off by
+  default because it costs a few extra store requests per ID.
+
+Store search is full of lookalikes (there's a "Dark Reader" on Edge published by
+"Darth Reader Inc."), so the app **never matches on a similar name alone**:
+
+- **Same publisher**: both listings give the same publisher website. Safe to use.
+- **Name match, check it**: identical name, but one listing has no website to compare.
+  Usually right, but look at the user count and publisher before you trust it.
+- **No match**: nothing passed the check. If a lookalike was skipped, the status bar says so.
+
+Heads up: the publisher website is filled in by the developer, not verified by the stores.
+If several listings claim the same website the app picks the one with the most users, and it
+shows the user count next to every match so you can sanity-check it.
 
 ## What's new in 2.1
 
@@ -69,10 +93,12 @@ BrowserExtensionLookup.exe --selftest
 ```
 
 It runs offline checks first (ID extraction from Intune-style text, the Chrome data
-parser, and fake store failures to prove errors never show as "Not Found"), then live
-checks against real extensions: Google Translate on Chrome, Grammarly and uBlock Origin
-(MV2) on Edge, uBlock Origin on Chrome (removed), a made-up ID in both stores, and a
-search in each store.
+parser, the publisher-website comparison, and fake store failures to prove errors never
+show as "Not Found"), then live checks against real extensions: Google Translate on Chrome,
+Grammarly and uBlock Origin (MV2) on Edge, uBlock Origin on Chrome (removed), a made-up ID
+in both stores, a search in each store, and cross-store matching (NordVPN Chrome → Edge
+despite different names, Grammarly Edge → Chrome, the Dark Reader lookalike rejected, and
+Chrome-only Google Translate correctly unmatched).
 
 Writes `selftest-results.txt` next to wherever you ran it and exits 0 if everything passed.
 

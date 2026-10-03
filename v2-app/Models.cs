@@ -27,7 +27,7 @@ public static class Format
 
 /// <summary>One row in a store search result grid.</summary>
 public record SearchResult(string Name, string Id, Store Store, string Developer, string Url,
-    long? Users = null, double? Rating = null, long? RatingCount = null)
+    long? Users = null, double? Rating = null, long? RatingCount = null, string? Website = null)
 {
     public string UsersText => Format.Users(Users);
     public string RatingText => Format.Rating(Rating, RatingCount);
@@ -35,7 +35,7 @@ public record SearchResult(string Name, string Id, Store Store, string Developer
 
 /// <summary>Result of looking up a single extension ID against one store.</summary>
 public record LookupResult(string Id, Store Store, LookupStatus Status, string Name, string Url,
-    long? Users = null, int? ManifestVersion = null, string? ErrorReason = null)
+    long? Users = null, int? ManifestVersion = null, string? ErrorReason = null, string? Website = null)
 {
     public bool Found => Status == LookupStatus.Found;
 
@@ -50,6 +50,29 @@ public record LookupResult(string Id, Store Store, LookupStatus Status, string N
     public string NameText => Found ? Name : "N/A";
     public string UsersText => Found ? Format.Users(Users) : "";
     public string ManifestText => Found ? Format.Manifest(ManifestVersion) : "";
+}
+
+/// <summary>
+/// How sure we are that a listing in the other store is the same extension. Matches are only
+/// "SamePublisher" when both listings name the same publisher website; a matching name alone is
+/// never enough (store search is full of lookalikes).
+/// </summary>
+public enum MatchConfidence { SamePublisher, NameOnly, None, Error }
+
+/// <summary>The same extension's listing in the other store, or why none was found.</summary>
+public record StoreMatch(Store Store, MatchConfidence Confidence, string Name, string Id, string Url,
+    long? Users = null, string? Note = null, string? ErrorReason = null)
+{
+    public bool HasListing => Id.Length > 0;
+    public string UsersText => Format.Users(Users);
+
+    public string ConfidenceText => Confidence switch
+    {
+        MatchConfidence.SamePublisher => "Same publisher",
+        MatchConfidence.NameOnly => "Name match, check it",
+        MatchConfidence.None => "No match",
+        _ => $"Error ({ErrorReason ?? "unknown"})",
+    };
 }
 
 /// <summary>Search results, an error message when the store call failed outright, and an optional note.</summary>
@@ -70,6 +93,10 @@ public class BulkRow : INotifyPropertyChanged
     private string _edgeStatus = "";
     private string _edgeManifest = "";
     private string _edgeUsers = "";
+    private string _matchStatus = "";
+    private string _matchName = "";
+    private string _matchId = "";
+    private string _matchStore = "";
 
     public string Id { get; init; } = "";
 
@@ -81,6 +108,12 @@ public class BulkRow : INotifyPropertyChanged
     public string EdgeStatus { get => _edgeStatus; set { _edgeStatus = value; OnChanged(nameof(EdgeStatus)); } }
     public string EdgeManifest { get => _edgeManifest; set { _edgeManifest = value; OnChanged(nameof(EdgeManifest)); } }
     public string EdgeUsers { get => _edgeUsers; set { _edgeUsers = value; OnChanged(nameof(EdgeUsers)); } }
+
+    // Cross-store match (only filled when the Bulk tab's "find matches" box is ticked)
+    public string MatchStatus { get => _matchStatus; set { _matchStatus = value; OnChanged(nameof(MatchStatus)); } }
+    public string MatchName { get => _matchName; set { _matchName = value; OnChanged(nameof(MatchName)); } }
+    public string MatchId { get => _matchId; set { _matchId = value; OnChanged(nameof(MatchId)); } }
+    public string MatchStore { get => _matchStore; set { _matchStore = value; OnChanged(nameof(MatchStore)); } }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -95,6 +128,14 @@ public class BulkRow : INotifyPropertyChanged
         EdgeStatus = edge.StatusText;
         EdgeManifest = edge.ManifestText;
         EdgeUsers = PlainUsers(edge);
+    }
+
+    public void SetMatch(StoreMatch m)
+    {
+        MatchStore = m.Store.ToString();
+        MatchStatus = m.ConfidenceText;
+        MatchName = m.Name;
+        MatchId = m.Id;
     }
 
     // Users only go to the CSV, so keep them as plain numbers (no thousands separators) for spreadsheets.

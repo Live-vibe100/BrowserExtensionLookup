@@ -12,7 +12,9 @@ This repo holds two versions of the same tool:
 | **v1 (original)** | [`v1-powershell/`](v1-powershell/) | The original PowerShell/WinForms script. Kept for reference and for anyone who'd rather run a script than an exe. | No-exe environments, or reading how it started. |
 
 Both do the same three jobs: **search by name**, **look up by ID**, and **bulk look up**
-a list of IDs — across both stores at once.
+a list of IDs — across both stores at once. v2.2 also finds an extension's ID in the
+*other* store (Chrome ID → Edge ID and back), checked by publisher website so lookalikes
+don't sneak in.
 
 ## v2 — the app (recommended)
 

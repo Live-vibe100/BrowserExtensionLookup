@@ -6,7 +6,7 @@
 
 ---
 
-## 00. PHASE 2 STATUS (2026-10-03): cross-store matching DONE + verified on branch `feature/cross-store-matching`, committed locally, NOT pushed
+## 00. PHASE 2 STATUS (2026-10-03): cross-store matching DONE, merged and released as v2.2
 
 - PR #1 merged (merge commit ed14c0b); v2.1 release promoted to Latest.
 - New `StoreMatcher.cs`: finds an extension's listing in the other store. Searches by full name, brand and website name;
@@ -16,7 +16,12 @@
 - Lookup tab: third "Edge match"/"Chrome match" row. Bulk: opt-in checkbox, Match columns + "Copy match" (only on matched rows), CSV Match columns.
 - Version 2.2.0. Self-test 29/29. Matcher sweep over 30 real extensions: 18 same publisher, 6 name-only (all genuine; Chrome lists no website
   for them), 6 no match (all correct). GUI verified with screenshots.
-- **Next:** Joe reviews; ask about push / PR / v2.2 release.
+- Shipped 2026-10-03: PR #2 merged (merge commit 220f85f), release **v2.2 is Latest** (exe built from 3aa6053,
+  SHA256 2D1815F1...E41DA1). Both phases of this handoff are complete.
+- Note: twice now Joe's merge didn't reach GitHub (PR stayed open). Always verify with `gh pr view N --json state` before
+  touching releases. Likely cause: merging in GitHub Desktop without "Push origin".
+- **Next:** nothing pending. Ideas not started: Chrome "load more" (skipped by Joe), a verified-publisher signal for Chrome
+  listings that show no website.
 
 ## 0. STATUS UPDATE (2026-10-02, build session): Phase 1 DONE + verified, committed locally, NOT pushed
 

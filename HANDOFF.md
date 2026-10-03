@@ -22,7 +22,8 @@
   doubling), Edge uBO Found+MV2, Chrome uBO Removed, Intune paste in Bulk + CSV export, dead proxy -> Error (no connection),
   clipboard locked -> status warning, no crash.
 - Follow-up (same day): CSV users now plain numbers; 28-query search sweep (scratchpad harness calling StoreClient) found no app bugs, 54/54 top-result lookups matched. Joe approved pushing the branch.
-- **Next:** ask Joe about a PR and a Release (not yet approved). Phase 2 = cross-store matching only, after Joe says go.
+- PR opened: https://github.com/Live-vibe100/BrowserExtensionLookup/pull/1 (no CI configured). Release v2.1 created as a PRE-RELEASE pinned to 6600d4a with the exe (SHA256 EBB4C231...EDF57).
+- **Next:** when Joe merges PR #1, flip v2.1 to a full/Latest release. Phase 2 (cross-store matching) after Joe says go. Phase 2 = cross-store matching only, after Joe says go.
 
 ## 1. What was done so far
 

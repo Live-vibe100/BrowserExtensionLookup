@@ -74,7 +74,18 @@ public partial class LookupView : UserControl
 
             _rows.Add(ToRow("Chrome", chrome));
             _rows.Add(ToRow("Edge", edge));
-            ReportSummary(id, chrome, edge);
+
+            // Found in one store only: look for the same extension's listing (and ID) in the other.
+            StoreMatch? match = null;
+            if (StoreMatcher.SourceFor(chrome, edge) is { } source)
+            {
+                var target = source.Store == Store.Chrome ? "Edge" : "Chrome";
+                Report($"Found in {source.Store}. Looking for the same extension in {target}...", StatusLevel.Working);
+                match = await StoreMatcher.Instance.FindAsync(source);
+                _rows.Add(new LookupRow($"{target} match", match.ConfidenceText, match.HasListing ? match.Name : "N/A",
+                    match.Id, match.Url, match.UsersText, "", match.HasListing));
+            }
+            ReportSummary(id, chrome, edge, match);
         }
         finally
         {
@@ -86,7 +97,7 @@ public partial class LookupView : UserControl
     private static LookupRow ToRow(string storeName, LookupResult r) =>
         new(storeName, r.StatusText, r.NameText, r.Id, r.Url, r.UsersText, r.ManifestText, r.Found);
 
-    private void ReportSummary(string id, LookupResult chrome, LookupResult edge)
+    private void ReportSummary(string id, LookupResult chrome, LookupResult edge, StoreMatch? match)
     {
         static string? Describe(string store, LookupResult r) => r.Status switch
         {
@@ -99,15 +110,34 @@ public partial class LookupView : UserControl
         var parts = new[] { Describe("Chrome", chrome), Describe("Edge", edge) }.Where(p => p is not null).ToList();
         var anyError = chrome.Status == LookupStatus.Error || edge.Status == LookupStatus.Error;
 
+        if (match is not null)
+        {
+            parts.Add(match.Confidence switch
+            {
+                MatchConfidence.SamePublisher => $"{match.Store} match: \"{match.Name}\" (same publisher)",
+                MatchConfidence.NameOnly => $"{match.Store} match: \"{match.Name}\" (same name only, check it before using)",
+                MatchConfidence.None => $"No {match.Store} match",
+                _ => $"{match.Store} match check failed ({match.ErrorReason})",
+            } + (match.Note is null || match.Confidence == MatchConfidence.NameOnly ? "" : $". {match.Note}"));
+            anyError |= match.Confidence == MatchConfidence.Error;
+        }
+
         if (parts.Count == 0)
             Report($"Extension ID '{id}' was not found in either store.", StatusLevel.Warn);
         else
-            Report(string.Join("  |  ", parts), anyError || (!chrome.Found && !edge.Found) ? StatusLevel.Warn : StatusLevel.Info);
+            Report(string.Join("  |  ", parts),
+                anyError || match?.Confidence == MatchConfidence.NameOnly || (!chrome.Found && !edge.Found)
+                    ? StatusLevel.Warn : StatusLevel.Info);
     }
 
     private void CopyId_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not LookupRow r) return;
+        if (r.Id.Length == 0)
+        {
+            Report("No match was found, so there's no ID to copy.", StatusLevel.Warn);
+            return;
+        }
         if (Util.TryCopy(r.Id) is { } error) Report(error, StatusLevel.Warn);
         else Report($"Copied ID: {r.Id}");
     }

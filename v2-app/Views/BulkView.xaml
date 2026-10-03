@@ -21,6 +21,8 @@
                          FontFamily="Consolas" AcceptsReturn="True" TextWrapping="NoWrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                          VerticalContentAlignment="Top"/>
+                <CheckBox x:Name="MatchBox" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}"
+                          Content="Also find each extension in the other store (Chrome ID → Edge ID and back). Slower."/>
             </StackPanel>
             <StackPanel Grid.Column="1" Margin="14,24,0,0" VerticalAlignment="Top">
                 <Button x:Name="RunButton" Content="Lookup All" Style="{StaticResource AccentButton}"
@@ -109,6 +111,32 @@
                                 </Style>
                             </DataGridTextColumn.HeaderStyle>
                         </DataGridTextColumn>
+                        <!-- Cross-store match columns: shown only when a run used "find in the other store" -->
+                        <DataGridTextColumn x:Name="MatchStatusColumn" Header="Match" Binding="{Binding MatchStatus}" Width="150"
+                                            ElementStyle="{StaticResource StatusCellText}" Visibility="Collapsed"/>
+                        <DataGridTextColumn x:Name="MatchNameColumn" Header="Match Name" Binding="{Binding MatchName}" Width="3*"
+                                            Visibility="Collapsed"/>
+                        <DataGridTextColumn x:Name="MatchIdColumn" Header="Match ID" Binding="{Binding MatchId}" Width="3*"
+                                            ElementStyle="{StaticResource MonoCellText}" Visibility="Collapsed"/>
+                        <DataGridTemplateColumn x:Name="MatchCopyColumn" Width="104" MinWidth="104" CanUserResize="False"
+                                                Visibility="Collapsed">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- Only rows with a match get a button, so it can't be confused with the row's own Copy -->
+                                    <Button Content="Copy match" Click="CopyMatchId_Click" ToolTip="Copy the other store's ID">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource CopyButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding MatchId}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTemplateColumn Width="72" MinWidth="72" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>

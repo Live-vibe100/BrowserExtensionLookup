@@ -53,6 +53,12 @@
                                         <DataTrigger Binding="{Binding StoreName}" Value="Edge">
                                             <Setter Property="Foreground" Value="{StaticResource EdgeBrush}"/>
                                         </DataTrigger>
+                                        <DataTrigger Binding="{Binding StoreName}" Value="Chrome match">
+                                            <Setter Property="Foreground" Value="{StaticResource ChromeBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding StoreName}" Value="Edge match">
+                                            <Setter Property="Foreground" Value="{StaticResource EdgeBrush}"/>
+                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </DataGridTextColumn.ElementStyle>

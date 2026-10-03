@@ -6,6 +6,18 @@
 
 ---
 
+## 00. PHASE 2 STATUS (2026-10-03): cross-store matching DONE + verified on branch `feature/cross-store-matching`, committed locally, NOT pushed
+
+- PR #1 merged (merge commit ed14c0b); v2.1 release promoted to Latest.
+- New `StoreMatcher.cs`: finds an extension's listing in the other store. Searches by full name, brand and website name;
+  verdict by **publisher website** (Same publisher / Name match, check it / No match / Error). Never matches on name similarity
+  alone (live lookalike: "Dark Reader" on Edge by "Darth Reader Inc.", ooeaeegkhfeikelcapagcgeofffkjind).
+  Publisher website is developer-declared, so most-users wins among same-site candidates and users are shown.
+- Lookup tab: third "Edge match"/"Chrome match" row. Bulk: opt-in checkbox, Match columns + "Copy match" (only on matched rows), CSV Match columns.
+- Version 2.2.0. Self-test 29/29. Matcher sweep over 30 real extensions: 18 same publisher, 6 name-only (all genuine; Chrome lists no website
+  for them), 6 no match (all correct). GUI verified with screenshots.
+- **Next:** Joe reviews; ask about push / PR / v2.2 release.
+
 ## 0. STATUS UPDATE (2026-10-02, build session): Phase 1 DONE + verified, committed locally, NOT pushed
 
 - .NET 10 SDK 10.0.401 installed via winget (hash verified). Project retargeted to `net10.0-windows`, version 2.1.0.
@@ -22,7 +34,8 @@
   doubling), Edge uBO Found+MV2, Chrome uBO Removed, Intune paste in Bulk + CSV export, dead proxy -> Error (no connection),
   clipboard locked -> status warning, no crash.
 - Follow-up (same day): CSV users now plain numbers; 28-query search sweep (scratchpad harness calling StoreClient) found no app bugs, 54/54 top-result lookups matched. Joe approved pushing the branch.
-- **Next:** ask Joe about a PR and a Release (not yet approved). Phase 2 = cross-store matching only, after Joe says go.
+- PR opened: https://github.com/Live-vibe100/BrowserExtensionLookup/pull/1 (no CI configured). Release v2.1 created as a PRE-RELEASE pinned to 6600d4a with the exe (SHA256 EBB4C231...EDF57).
+- **Next:** when Joe merges PR #1, flip v2.1 to a full/Latest release. Phase 2 (cross-store matching) after Joe says go. Phase 2 = cross-store matching only, after Joe says go.
 
 ## 1. What was done so far
 

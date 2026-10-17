@@ -1,117 +1,91 @@
-# HANDOFF — Browser Extension Lookup: search + reliability upgrades
+# HANDOFF — Browser Extension Lookup
 
-**Written:** 2026-10-02 (review done from an ARCANA session; nothing has been changed in the code yet)
-**Branch:** `feature/search-and-reliability-upgrades` (local only, nothing pushed)
-**Scope:** `v2-app/` (the WPF app). Leave `v1-powershell/` alone; it's kept as a reference copy.
+**Last updated:** 2026-10-03
+**State:** v2.2.0 shipped. `main` is at `220f85f`, release **v2.2 is Latest** on GitHub. Nothing is in progress.
+**Scope:** `v2-app/` (the WPF app). `v1-powershell/` is a reference copy; leave it alone (Joe's call).
 
 ---
 
-## 00. PHASE 2 STATUS (2026-10-03): cross-store matching DONE + verified on branch `feature/cross-store-matching`, committed locally, NOT pushed
+## 1. What's been done
 
-- PR #1 merged (merge commit ed14c0b); v2.1 release promoted to Latest.
-- New `StoreMatcher.cs`: finds an extension's listing in the other store. Searches by full name, brand and website name;
-  verdict by **publisher website** (Same publisher / Name match, check it / No match / Error). Never matches on name similarity
-  alone (live lookalike: "Dark Reader" on Edge by "Darth Reader Inc.", ooeaeegkhfeikelcapagcgeofffkjind).
-  Publisher website is developer-declared, so most-users wins among same-site candidates and users are shown.
-- Lookup tab: third "Edge match"/"Chrome match" row. Bulk: opt-in checkbox, Match columns + "Copy match" (only on matched rows), CSV Match columns.
-- Version 2.2.0. Self-test 29/29. Matcher sweep over 30 real extensions: 18 same publisher, 6 name-only (all genuine; Chrome lists no website
-  for them), 6 no match (all correct). GUI verified with screenshots.
-- **Next:** Joe reviews; ask about push / PR / v2.2 release.
-
-## 0. STATUS UPDATE (2026-10-02, build session): Phase 1 DONE + verified, committed locally, NOT pushed
-
-- .NET 10 SDK 10.0.401 installed via winget (hash verified). Project retargeted to `net10.0-windows`, version 2.1.0.
-- All of Phase 1 is built: B1–B4, real Chrome search data, MV2 flag (Chrome too: item `[18]` has the manifest JSON),
-  Removed status, Users/Rating columns, paste-anything Bulk, self-test additions, READMEs.
-- Extra findings made while building (all live-checked):
-  - Chrome detail pages carry a status code in `AF_initDataCallback({key: 'ds:0', data:[N], errorHasStatus: true})`:
-    **5 = never existed, 7 = removed** (checked with 2 of each: uBO + The Great Suspender vs two made-up IDs).
-    A removed page and a made-up page are otherwise identical (both `empty-title` + `unsupported`).
-  - Edge details API returns a clean **404** for a made-up ID.
-  - Edge search results include `averageRating` + `noOfRatings`, so Edge search shows ratings (no user counts).
-- Self-test: 21/21 pass on the published exe (11 offline incl. simulated 503/429/timeout/no-connection, 10 live).
-- GUI verified by driving the real exe with UI Automation: nordvpn search, rapid 5x Enter on "zoom" (10/47 rows, no
-  doubling), Edge uBO Found+MV2, Chrome uBO Removed, Intune paste in Bulk + CSV export, dead proxy -> Error (no connection),
-  clipboard locked -> status warning, no crash.
-- Follow-up (same day): CSV users now plain numbers; 28-query search sweep (scratchpad harness calling StoreClient) found no app bugs, 54/54 top-result lookups matched. Joe approved pushing the branch.
-- PR opened: https://github.com/Live-vibe100/BrowserExtensionLookup/pull/1 (no CI configured). Release v2.1 created as a PRE-RELEASE pinned to 6600d4a with the exe (SHA256 EBB4C231...EDF57).
-- **Next:** when Joe merges PR #1, flip v2.1 to a full/Latest release. Phase 2 (cross-store matching) after Joe says go. Phase 2 = cross-store matching only, after Joe says go.
-
-## 1. What was done so far
-
-- Read all of the v2 code (`StoreClient.cs`, the three views, `Models.cs`, `SelfTest.cs`, `App.xaml.cs`).
-- Sent real requests to both stores (curl and Node) to find out **why searches miss extensions**. Everything below was observed live on 2026-10-02.
-- **Nothing has been built or run yet.** This VM has no .NET 8 SDK, and no Python either (Node is available for quick probes).
-
-## 2. What we learned from the live stores
-
-### Chrome Web Store
-- **Search returns exactly 10 results per page.** The page HTML includes a structured data block:
-  `AF_initDataCallback({key: 'ds:1', hash: '..', data:[...], sideChannel: {}});`
-  Each result inside it is an array shaped like
-  `[id, iconUrl, NAME, rating, ratingCount, iconUrl2, shortDescription, website, ..., USERCOUNT at index 14, ...]`
-  (seen at path `0.0.0.5.0.0.N.0.0`, but **don't hardcode the path**: walk the tree and match arrays whose `[0]` is a 32-char a–p ID and whose `[2]` is a string).
-- When more results exist, a **continuation token** sits at `data[2][0]` (present for "zoom", missing for "nordvpn", which only had 3 results). The app ignores it today.
-- **The current code builds names from the URL slug, and Google truncates slugs.** Example: NordVPN shows as "Vpn For Chrome Nordvpn Pr". The real name is "VPN for Chrome: NordVPN proxy protection".
-- **uBlock Origin (`cjpalhdlnbpafiamejdnhcphjbkeiagm`) has been removed from the Chrome store** (the Manifest V2 removal). Its detail page redirects to `/detail/empty-title/<id>`, the og:title is just "Chrome Web Store", and the page contains an `unsupported` marker. A made-up ID returns a 301 instead (final destination not checked yet).
-  → **This means `--selftest` is failing right now** on the "Chrome lookup by ID" check.
-
-### Edge Add-ons
-- Search API: `/addons/v4/getfilteredorderedsearch`. The response has keys `title, extensionList, totalExtensions, nextPageNo, hasMorePages, aggregations`. `activeInstallCount` comes back as **0** in search results, so real counts have to come from the details API.
-- **Edge hides Manifest V2 extensions from search.** uBlock Origin on Edge (`odfafepnkmbhccpbejgmiehpchacaeak`) never shows up, even for "ublock origin". The details API still finds it fine and returns `isManifestV2: true` and `activeInstallCount: 13638822`.
-- Details API: `/addons/getproductdetailsbycrxid/<id>`. Useful fields: `name, developer, activeInstallCount, isManifestV2, version, lastUpdateDate, averageRating, ratingCount, shortDescription, publisherWebsiteUri`.
-- **The README's NordVPN note is out of date.** "nordvpn" now returns NordVPN as the first Edge result.
-
-## 3. Bugs found in the code (fix all of these in Phase 1)
-
-| # | Bug | Where | Fix |
+| Version | What | PR | Release |
 |---|---|---|---|
-| B1 | Self-test uses uBO on Chrome, which has been removed, so the test fails | `SelfTest.cs` | Pick stable, popular IDs and **check them live first** (e.g. Google Translate `aapbdbdomjkkjkaonfhkkikfgjllcleb` on Chrome, Grammarly `cnlefmmeadmemmdciolhbnfeacpdfbkd` on Edge). Keep uBO-on-Edge as the MV2 check. |
-| B2 | Network errors, timeouts, 429s and 5xx responses all show as **"Not Found"** (the bare `catch {}` blocks, and `GetStringAsync` returning null for any non-2xx) | `StoreClient.cs` lookups | Add a three-way status: Found / NotFound / Error (+ reason). 404 or a "removed" page means NotFound; timeouts, 429 and 5xx mean Error. Show "Error (timed out)" in the grids and the CSV. |
-| B3 | Pressing Enter starts a second search/lookup while one is already running. Both clear the grid, then both add results, so the results get mixed | `SearchView.QueryBox_KeyDown`, `LookupView.IdBox_KeyDown` | Add a busy guard (or cancel the previous run with a CancellationTokenSource) |
-| B4 | `Clipboard.SetText` can throw a COMException (CLIPBRD_E_CANT_OPEN) when another app holds the clipboard; nothing catches it, so the app crashes | all three `CopyId_Click` | Wrap it in try/catch and show a warning in the status bar. Also add an `App.DispatcherUnhandledException` handler so nothing crashes the app silently. |
+| 2.1.0 | Reliability fixes + real Chrome data (Phase 1) | [#1](https://github.com/Live-vibe100/BrowserExtensionLookup/pull/1), merge `ed14c0b` | v2.1 (exe from `6600d4a`) |
+| 2.2.0 | Cross-store matching (Phase 2) | [#2](https://github.com/Live-vibe100/BrowserExtensionLookup/pull/2), merge `220f85f` | **v2.2, Latest** (exe from `3aa6053`, SHA256 `2D1815F1…E41DA1`) |
 
-## 4. The plan
+**2.1.0**
+- Lookups end as **Found / Not Found / Removed / Error (reason)**. Timeouts, 429s, 5xx and offline used to show as "Not Found".
+- Chrome search reads the store page's embedded data: full names (not truncated URL slugs), users, rating.
+- **MV2 flag** in Lookup, Bulk and CSV, for both stores. **Removed** status for Chrome listings that were taken down.
+- Bulk accepts anything containing IDs (store URLs, Intune `id;update-url` lines, CSV, JSON), drops duplicates, counts lines with no ID.
+- Fixed: repeated Enter mixed two result sets; Copy crashed when another app held the clipboard; self-test used uBO on Chrome (removed).
+- Global unhandled-error handler. CSV user counts are plain numbers (Joe asked).
+- Retargeted to **.NET 10** (.NET 8 support ends 2026-11-10).
 
-### Phase 1 — reliability + better results (do this first)
-1. **B1–B4** above.
-2. **Real Chrome search data:** parse the `ds:1` block in `SearchChromeAsync` to get the real name, user count, rating and website. Fall back to the current slug regex if the block isn't there (and say so in the status bar).
-3. **Manifest V2 flag:** show an "MV2" marker (the extension is on its way out) in Lookup, Bulk and the CSV. Edge gets it from the details API (`isManifestV2`). **Chrome: still to check** whether the detail page's data block includes the manifest version; if it doesn't, show "?" rather than guessing.
-4. **"Removed from store" status for Chrome:** if the redirect goes to `empty-title` and the page has the `unsupported` marker, show "Removed" instead of "Not Found". That's much more useful for policy cleanup. Check what a made-up ID does first.
-5. **Add columns** to the search grids: Users and Rating (Chrome from `ds:1`; for Edge, either leave Users blank or fetch details only on demand. Don't call the details API for every search result).
-6. **Paste-anything Bulk input:** pull every `[a-p]{32}` out of whatever is pasted (store URLs, Intune `id;https://clients2.google.com/service/update2/crx` lines, CSV, JSON), remove duplicates, and report how many lines had no ID in them.
-7. **Self-test additions:** Chrome search returns real names (not slugs), Edge uBO comes back as MV2, ID extraction works on sample Intune text (offline check), and a removed ID is reported as Removed or NotFound, never Error.
-8. Update both READMEs (Known quirks: drop the NordVPN line, add the Edge hides-MV2 explanation, the Chrome 10-per-page note, and the new features). Bump the version to **2.1.0**.
+**2.2.0**
+- `StoreMatcher.cs`: when an ID is in only one store, finds the same extension in the other store (Chrome ID → Edge ID and back).
+- Lookup tab: adds an "Edge match" / "Chrome match" row. Bulk: opt-in tick box, Match columns, **Copy match** button (only on matched rows), CSV Match columns.
+- Verdicts: **Same publisher** (publisher websites match) / **Name match, check it** (identical name, one side lists no website) / **No match** (skipped lookalikes are named in the status bar) / **Error**.
 
-### Phase 2 — nice-to-haves (only after Phase 1 is verified and Joe says go)
-- **Cross-store matching:** when a result is found in one store, search the other store by its exact name and show the match.
-- **Chrome "load more":** follow the continuation token. This means copying the store page's own internal request (a `batchexecute` POST), which could break whenever Google changes it. **Off by default**, and if it fails, quietly fall back to the first 10 results with a note.
+## 2. What's been tested
 
-### Rules while building
-- Store responses are **untrusted input**: parse them with JSON or regex only, never run anything from them, and only open `https://` URLs built from the two known store hosts (what `Util.OpenUrl` already does).
-- No new NuGet packages. `System.Text.Json` and regex are enough.
-- No silent failures (that's the whole point of B2).
-- Keep the `UA` constants but bump them to a current Chrome/Edge version.
+- `--selftest`: **29/29 pass** on the released v2.2 exe. 16 offline (ID extraction, Chrome data parser, website comparison, simulated 503 / 429 / timeout / no-connection, match search with no connection → Error) + 13 live (lookups, removed/bogus IDs, both searches, NordVPN/Grammarly matching, Dark Reader lookalike rejected, Chrome-only Google Translate unmatched).
+- 28-query search sweep across both stores: no app bugs; 54/54 top results looked up by ID matched the search name.
+- Matcher sweep over 30 real extensions: 18 same publisher, 6 name-only (all genuine), 6 no match (all correct).
+- GUI driven for real (see §5) with screenshots: searches, rapid Enter, MV2/Removed lookups, Intune paste + CSV, dead-proxy error path, locked clipboard, Lookup matches, Bulk matching, Copy match.
 
-## 5. How to verify
-1. Install the .NET 8 SDK (**needs Joe's OK first**; see Decisions). Official source: `winget install Microsoft.DotNet.SDK.8`.
-2. `cd v2-app` → `dotnet build` → then the publish command from the README.
-3. `publish\BrowserExtensionLookup.exe --selftest`: every check passes, and keep a copy of `selftest-results.txt` as proof.
-4. Launch the app and check by hand: search "nordvpn" (Chrome shows the full real name and user count), search "zoom" (no mixed results when you hit Enter quickly several times), look up `odfafepnkmbhccpbejgmiehpchacaeak` (Edge Found + MV2), look up `cjpalhdlnbpafiamejdnhcphjbkeiagm` (Chrome Removed), paste an Intune-style policy block into Bulk, and export the CSV.
-5. Error path: unplug the network or point at a dead proxy. Lookups should show **Error**, not Not Found.
-6. Screenshot the results for Joe.
+## 3. What's left / ideas (none started, none promised)
 
-## 6. Decisions needing Joe
-Answered by Joe on 2026-10-02:
-- [x] SDK: install the **.NET 10 SDK** and **retarget the project to `net10.0-windows`** (.NET 8 support ends 2026-11-10).
-- [x] **v1-powershell**: leave it untouched.
-- [x] Phase 2: **cross-store matching only** (skip Chrome "load more"). Only after Phase 1 is verified and Joe says go.
-- [x] GitHub: commit locally only; ask Joe about the push, PR and release **after he's reviewed** Phase 1.
+- **Chrome "load more":** follow Chrome's continuation token for results past the top 10. Means copying Google's internal `batchexecute` request, which could break any time. **Joe chose to skip this.** Don't build without asking.
+- **Better confirmation for Chrome listings with no website.** LastPass, uBO Lite, React DevTools, Citrix and Redux DevTools all come back "Name match, check it" because Chrome's data shows no website for them. The Chrome data block may hold a verified-publisher field we haven't found. Unverified, needs a look at the raw item arrays.
+- **Keep the GUI test driver in the repo.** The UI Automation scripts lived in a session scratchpad and are gone. A `tools/` folder would make re-verification cheap. Ask Joe first.
+- **Optional cleanup:** the merged branches `feature/search-and-reliability-upgrades` and `feature/cross-store-matching` still exist on GitHub. Deleting them needs Joe's explicit yes.
 
----
+## 4. Decisions needing Joe
 
-## 7. Prompt for the next session
+- None open.
 
-Start the new session with its working folder set to `C:\CLAUDE\Playground\BrowserExtensionLookup`, then paste:
+## 5. How to build and verify
 
-> We're working on my Browser Extension Lookup app (this folder, branch `feature/search-and-reliability-upgrades`). A previous session reviewed the code and tested the live stores. Read `HANDOFF.md` first; it has the findings, the bugs, and the plan. Check the plan still makes sense against the code (don't re-do the whole review), then ask me the open questions in section 6 before you install anything or start building. Once I've said yes, do Phase 1, verify it as section 5 describes, and show me the self-test output and screenshots. Don't push anything to GitHub without asking me.
+- **Tools on the build VM:** .NET 10 SDK at `C:\Program Files\dotnet` (`export PATH="$PATH:/c/Program Files/dotnet"` in Bash). `gh` at `C:\Program Files\GitHub CLI`, logged in as Live-vibe100. Node is available for quick store probes; Python isn't.
+- **Build:** in `v2-app/`, `dotnet build`, then the publish command from `v2-app/README.md` (single-file, self-contained, about 62 MB).
+- **Self-test:** `publish\BrowserExtensionLookup.exe --selftest` → exit code 0 and `selftest-results.txt`.
+- **GUI checks:** drive the real exe from **Windows PowerShell 5.1** with `UIAutomationClient`. Every control has an AutomationId from its `x:Name` (`QueryBox`, `SearchButton`, `IdBox`, `LookupButton`, `IdsBox`, `RunButton`, `ExportButton`, `MatchBox`, `ResultGrid`, `ChromeGrid`, `EdgeGrid`, `StatusText`, tabs `TabSearch`/`TabLookup`/`TabBulk`). Screenshot with `PrintWindow(hwnd, hdc, 2)`. Gotchas:
+  - Treat a status ending in "..." as still working (the match step says "Found in Chrome. Looking for…").
+  - The Save As dialog is a **child of the main window**, not a top-level window. Its file-name box isn't exposed to UIA, so use Alt+N, type the path, Enter.
+  - Filter "Copy" buttons by ControlType Button (a text label inside the button also matches by name).
+- **Error path:** launch with env `HTTPS_PROXY=http://127.0.0.1:9` (and `HTTP_PROXY`). .NET honours it, so every request fails → should show `Error (no connection)`.
+- **Clipboard-locked path:** another process calls `OpenClipboard(0)` and holds it, then click Copy → status-bar warning, no crash.
+
+## 6. How the stores actually work (checked live, 2026-10-02/03)
+
+**Chrome Web Store** (no public API; the app reads data the page embeds for itself)
+- Pages embed `AF_initDataCallback({key: 'ds:N', hash: '..', data:[...], sideChannel: {}});`. Find items by shape, not path: any array whose `[0]` is a 32-char a–p ID and `[2]` is a string. Same layout on search and detail pages: `[2]` name, `[3]` rating, `[4]` rating count, `[7]` website (often null), `[14]` users, `[18]` manifest JSON (contains `"manifest_version"`).
+- Search gives **10 results only**. A continuation token sits at `data[2][0]` when there are more.
+- Detail page for a missing ID: `AF_initDataCallback({key: 'ds:0', data:[N], errorHasStatus: true})`. **5 = never existed, 7 = removed.** Otherwise the two pages look identical (`/detail/empty-title/<id>`, og:title "Chrome Web Store").
+- A removed listing's page still shows *recommendations* in `ds:1` (e.g. uBO Lite on uBO's page), so always match on the requested ID.
+
+**Edge Add-ons**
+- Search: `/addons/v4/getfilteredorderedsearch` (20 per page; the app reads up to 3 pages, 1 page when matching). `activeInstallCount` is always **0** here; `averageRating` and `noOfRatings` are real.
+- **Edge search hides MV2 extensions** (uBO on Edge, `odfafepnkmbhccpbejgmiehpchacaeak`, never shows up), but the details API still returns them.
+- Details: `/addons/getproductdetailsbycrxid/<id>`. Gives `name, developer, activeInstallCount, isManifestV2, publisherWebsiteUri, ...`. A made-up ID → clean **404**.
+- Search quirks that aren't app bugs: "c++" returns unrelated results (Edge seems to drop the `++`); ranking can be odd ("lastpass" puts 1Password first).
+
+**Cross-store matching facts**
+- The same extension has **different IDs** in each store, and often different names (NordVPN: "VPN for Chrome: NordVPN proxy protection" vs "NordVPN - the Fastest VPN proxy for privacy").
+- Lookalikes are real: Edge `ooeaeegkhfeikelcapagcgeofffkjind` is "Dark Reader - dark mode for Edge" by "Darth Reader Inc.", with no website. **Never match on name similarity alone.**
+- The publisher website is **typed in by the developer, not verified.** That's why most-users wins among same-website candidates and user counts are always shown.
+
+## 7. Rules and lessons (from working with Joe)
+
+- Store responses are **untrusted input**: JSON/regex parsing only, never execute anything, only open `https://` URLs on the two store hosts.
+- No new NuGet packages. No silent failures: anything that couldn't be checked shows **Error**, never a confident wrong answer.
+- **Joe's merges have twice not reached GitHub** (PR stayed open; probably GitHub Desktop without "Push origin"). Always check `gh pr view N --json state` before touching releases. When asked, merge with a **merge commit** (not squash) so the release's commit stays in `main`'s history.
+- Releases: build the exe from the exact pushed commit, put the SHA256 in the notes, and publish as a **pre-release until the PR is merged**, then promote to Latest (Joe agreed to this).
+- Pushes, PRs, releases and merges each need Joe's yes. Deleting anything on GitHub needs his explicit yes.
+
+## 8. Prompt for the next session
+
+Start with the working folder set to `C:\CLAUDE\Playground\BrowserExtensionLookup`, then paste:
+
+> We're working on my Browser Extension Lookup app (this folder). Read `HANDOFF.md` first: v2.2 is shipped and nothing's in progress. Pull the latest `main`, make a new feature branch for whatever I ask for, and don't push anything to GitHub without asking me.
